@@ -548,7 +548,7 @@ def following_recommendation(request):
 
     print(ppr)
 
-    draw_network(g.copy(), nx.spring_layout(g, k=0.9), {profile_name, ppr[0][0], ppr[1][0], ppr[2][0], ppr[3][0], ppr[4][0]})
+    # draw_network(g.copy(), nx.spring_layout(g, k=0.9), {profile_name, ppr[0][0], ppr[1][0], ppr[2][0], ppr[3][0], ppr[4][0]})
 
     return JsonResponse(recommendation_list, safe=False, status=status.HTTP_200_OK)
     
