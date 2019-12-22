@@ -21,4 +21,10 @@ urlpatterns = [
     path('api/get_trending_hashtags', views.get_trending_hashtags, name='get_trending_hashtags'),
     path('api/add_or_remove_bookmark', views.add_or_remove_bookmark, name='add_or_remove_bookmark'),
     path('api/get_bookmark', views.get_bookmark, name='get_bookmark'),
+    path('api/network_analysis', views.network_analysis, name='network_analysis'),
+    path('api/create_mass_users', views.create_mass_users, name='create_mass_users'),
+    path('api/create_random_connections', views.create_random_connections, name='create_random_connections'),
+    path('api/create_random_interactions', views.create_random_interactions, name='create_random_interactions'),
+    path('api/following_recommendation', views.following_recommendation, name='following_recommendation'),
+    path('api/clear_db_data', views.clear_db_data, name='clear_db_data'),
 ]

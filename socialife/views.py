@@ -8,7 +8,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 import json
-from .middlewares import check_user_with_token
+from .middlewares import check_user_with_token, convert_vn_to_eng, draw_graph, draw_network
 
 from django.db.models import Q
 import uuid
@@ -24,6 +24,14 @@ from channels.layers import get_channel_layer
 from django.utils import timezone
 from django.db.models import Count
 
+import networkx as nx
+import numpy
+import random
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import matplotlib.image as mpimg
+from essential_generators import DocumentGenerator
+import operator
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -341,3 +349,219 @@ def get_bookmark(request):
         posts = request.user.bookmarked_posts.all()
         return Response({'message': 'Success', 'bookmarked_posts': PostSerializer(posts, many=True).data}, status=status.HTTP_200_OK)
     return Response({'message': 'Unauthorized'}, status=status.HTTP_401_UNAUTHORIZED)
+
+@api_view(['GET'])
+def create_mass_users(request):
+    last_names = ['Trần', 'Lê', 'Bùi', 'Hoàng', 'Nguyễn', 'Phạm', 'Võ', 'Đỗ', 'Phan', 'Đặng', 'Trịnh', 'Mai']
+    first_names = ['Anh','Long', 'Dương', 'Hà', 'Huỳnh', 'Kim', 'Lâm', 'Lăng', 'Mai', 'Vương', 'Đăng', 'Khoa', 'Ngọc', 'Minh', 'Phương', 'Việt', 'Tú', 'Hoa', 'Sơn']
+
+    for i in range(100):
+        first_name = random.choice(first_names)
+        last_name = random.choice(last_names)
+        profile_name = convert_vn_to_eng(first_name).lower() + convert_vn_to_eng(last_name).lower() + str(random.randrange(21, 111))
+        email = profile_name + '@gmail.com'
+        gender = random.choice(['Male', 'Female'])
+        date_of_birth = (timezone.now() - timezone.timedelta(days = random.randint(6570, 10950)))
+
+        user = MyUser.objects.create(email=email,first_name=first_name,
+        last_name=last_name,gender=gender.capitalize(),profile_name=profile_name, date_of_birth=date_of_birth)
+        user.set_password(profile_name)
+        user.save()
+
+        UserAvatar.objects.create(user = user, image = 'avatar/' + str(random.randint(1, 4)) + random.choice(['.jpg', '.png']))
+
+    return JsonResponse(last_names, safe=False)
+
+@api_view(['GET'])
+def create_random_connections(request):
+    users = MyUser.objects.all()
+    users_and_probs = []
+    for user in users:
+        following_probability = random.randint(6, 45)
+        users_and_probs.append([user, following_probability])
+    for user in users:
+        for other_user in users_and_probs:
+            if other_user[0] != user and other_user[0] not in user.followings.all():
+                rand = random.randint(1, other_user[1])
+                if rand == 1:
+                    user.followings.add(other_user[0])
+                    
+    return JsonResponse([], safe=False)
+
+@api_view(['GET'])
+def create_random_interactions(request):
+    users = MyUser.objects.all()
+    gen = DocumentGenerator()
+    for user in users:
+        create_post_probs = random.randint(1, 15)
+        if create_post_probs == 1:
+            text_content = gen.paragraph()
+            Post.objects.create(user = user, text_content = text_content)
+
+    for user in users:
+        for person in user.followings.all():
+            person_posts = Post.objects.filter(user = person)
+            for post in person_posts:
+                like_post_probs = random.randint(1, 12)
+                if like_post_probs == 1:
+                    post.liked_by.add(user)
+
+                comment_post_probs = random.randint(1, 17)
+                if comment_post_probs == 1:
+                    Comment.objects.create(post = post, user = user, content = gen.sentence())
+
+    return JsonResponse([], safe=False)
+
+@api_view(['GET'])
+def network_analysis(request):
+    profile_name = request.GET.get('profile_name', '')
+
+    if profile_name == '':
+        profile_name = None
+
+    users = MyUser.objects.all()
+
+    print(users)
+
+    pair_list = []
+    avatar = None
+    for user in users:
+        followings = user.followings.all()
+        for person in followings:
+            pair = [user.profile_name, person.profile_name]
+            print(pair)
+            pair_list.append(pair)
+
+    g = nx.DiGraph()
+    
+    g.add_edges_from(pair_list)
+
+    for user in users:
+        if user.profile_name not in g.nodes():
+            g.add_node(user.profile_name)
+    
+    i_d = nx.in_degree_centrality(g)
+    o_d = nx.out_degree_centrality(g)
+    b = nx.betweenness_centrality(g)
+    c = nx.closeness_centrality(g)
+    e = nx.eigenvector_centrality(g, max_iter=1000)
+    cc = nx.clustering(g)
+
+    draw_graph(g.copy(), nx.spring_layout(g, k=0.55), i_d, 'In Degree Centrality', profile_name)
+    draw_graph(g.copy(), nx.spring_layout(g, k=0.55), o_d, 'Out Degree Centrality', profile_name)
+    draw_graph(g.copy(), nx.spring_layout(g, k=0.55), b, 'Betweenness Centrality', profile_name)
+    draw_graph(g.copy(), nx.spring_layout(g, k=0.55), c, 'Closeness Centrality', profile_name)
+    draw_graph(g.copy(), nx.spring_layout(g, k=0.55), e, 'Eigenvector Centrality', profile_name)
+
+    draw_network(g.copy(), nx.spring_layout(g, k=0.55))
+
+    if profile_name is None:
+        result = [i_d, o_d, b, c, e, cc]
+    else:
+        result = [i_d.get(profile_name, ''), o_d.get(profile_name, ''), b.get(profile_name, ''), c.get(profile_name, ''), e.get(profile_name, ''), cc.get(profile_name, '')]
+
+    return JsonResponse(result, safe=False)
+    
+@api_view(['GET'])
+def following_recommendation(request):
+    profile_name = request.GET.get('profile_name', '')
+    user = MyUser.objects.filter(profile_name = profile_name)
+    if len(user) == 0:
+        return JsonResponse([], safe=False)
+    else:
+        user = user[0]
+
+    circle_profile_names = [profile_name]
+    user_circle_pairs = []
+
+    for person in user.followings.all():
+        if person.profile_name not in circle_profile_names:
+            circle_profile_names.append(person.profile_name)
+        for person_2 in person.followings.all():
+            if person_2.profile_name not in circle_profile_names:
+                circle_profile_names.append(person_2.profile_name)
+
+    print(circle_profile_names)
+    
+    users = MyUser.objects.filter(profile_name__in = circle_profile_names)
+
+    # 0.1*like + 0.25*cmt + 0.5*(Ratio * FA / FB)
+    for person in users:
+        for person_2 in person.followings.all():
+            if person_2 not in users:
+                continue
+            weight = 1
+            person_2_posts = Post.objects.filter(user = person_2)
+            for post in person_2_posts:
+                if person in post.liked_by.all():
+                    weight = weight + 0.1
+                for comment in post.comments.all():
+                    if comment.user == person:
+                        weight = weight + 0.25
+
+            FA = len(person.followers.all())
+            FB = len(person_2.followers.all())
+            FollowingsA = len(person.followings.all())
+            if FB == 0:
+                FB = 1
+            if FA == 0:
+                FA = 1
+            if FollowingsA == 0:
+                FollowingsA = 1
+            FtFRatio = FA / FollowingsA
+            weight = weight + (0.5 * (FtFRatio * FA / FB))
+
+            user_circle_pairs.append([person.profile_name, person_2.profile_name, weight])
+
+    g = nx.DiGraph()
+    
+    g.add_weighted_edges_from(user_circle_pairs)
+
+    personalization = {}
+    for node in g.nodes():
+        if node != profile_name:
+            personalization[node] = 0
+        else:
+            personalization[node] = 1
+
+    print(personalization)
+    # personalization={profile_name: 1}
+    
+    ppr = nx.pagerank(g, personalization=personalization, max_iter=150, tol=1e-10)
+    ppr = sorted(ppr.items(), key=operator.itemgetter(1), reverse=True)
+
+    recommendation_list = []
+
+    for item in ppr.copy():
+        followings = user.followings.all()
+        target = followings.filter(profile_name = item[0])
+        if len(target) == 0 and profile_name != item[0]:
+            continue
+        else:
+            ppr.remove(item)
+        
+    for item in ppr.copy()[0:5]:
+        target = MyUser.objects.filter(profile_name = item[0])[0]
+        recommendation_list.append(UserSerializer(target).data)
+    
+    # recommendation_users = MyUser.objects.filter(profile_name__in = recommendation_list)
+
+    print(ppr)
+
+    draw_network(g.copy(), nx.spring_layout(g, k=0.9), {profile_name, ppr[0][0], ppr[1][0], ppr[2][0], ppr[3][0], ppr[4][0]})
+
+    return JsonResponse(recommendation_list, safe=False, status=status.HTTP_200_OK)
+    
+@api_view(['GET'])
+def clear_db_data(request):
+    # HashTag.objects.all().delete()
+    # MyUser.objects.all().delete()
+    # Post.objects.all().delete()
+    # Comment.objects.all().delete()
+
+    # x = [('A', 'B'), ('A', 'C'), ('A', 'D'), ('B', 'E'), ('C', 'F'), ('D', 'G'), ('C', 'H'), ('F', 'D'), ('E', 'A'), ('H', 'E')]
+    # g = nx.DiGraph()
+    # g.add_edges_from(x)
+    # draw_network(g.copy(), nx.circular_layout(g), g.nodes())
+
+    return JsonResponse([], safe=False)

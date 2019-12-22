@@ -76,6 +76,13 @@ class MyUser(AbstractBaseUser):
         # file will be uploaded to MEDIA_ROOT/user_<id>/<filename>
         return 'user_{0}/{1}'.format(instance.profile_name, filename)
 
+    in_degree_centrality = models.ImageField(upload_to = user_directory_path, default='media/avatar/Visualization.png')
+    out_degree_centrality = models.ImageField(upload_to = user_directory_path, default='media/avatar/Visualization.png')
+    betweenness_centrality = models.ImageField(upload_to = user_directory_path, default='media/avatar/Visualization.png')
+    closeness_centrality = models.ImageField(upload_to = user_directory_path, default='media/avatar/Visualization.png')
+    eigenvector_centrality = models.ImageField(upload_to = user_directory_path, default='media/avatar/Visualization.png')
+    clustering_coefficient = models.ImageField(upload_to = user_directory_path, default='media/avatar/Visualization.png')
+
     channel_name = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
@@ -183,3 +190,12 @@ class Message(models.Model):
     chat_room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE)
     date_created = models.DateTimeField(auto_now_add=True)
     content = models.TextField()
+
+class NetworkVisualization(models.Model):
+    in_degree_centrality = models.ImageField(upload_to = 'network_visualization', default='media/avatar/Visualization.png')
+    out_degree_centrality = models.ImageField(upload_to = 'network_visualization', default='media/avatar/Visualization.png')
+    betweenness_centrality = models.ImageField(upload_to = 'network_visualization', default='media/avatar/Visualization.png')
+    closeness_centrality = models.ImageField(upload_to = 'network_visualization', default='media/avatar/Visualization.png')
+    eigenvector_centrality = models.ImageField(upload_to = 'network_visualization', default='media/avatar/Visualization.png')
+    clustering_coefficient = models.ImageField(upload_to = 'network_visualization', default='media/avatar/Visualization.png')
+    visualization = models.ImageField(upload_to = 'network_visualization', default='media/avatar/Visualization.png')
