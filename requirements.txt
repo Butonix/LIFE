@@ -26,7 +26,7 @@ h2==3.1.1
 hiredis==1.0.0
 hpack==3.0.0
 http3==0.6.7
-httpie==1.0.2
+httpie==1.0.3
 hyperframe==5.2.0
 hyperlink==19.0.0
 idna==2.8
